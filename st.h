@@ -40,6 +40,8 @@ enum glyph_attribute {
         ATTR_WDUMMY     = 1 << 10,
         ATTR_SIXEL      = 1 << 11,
         ATTR_BOXDRAW    = 1 << 12,
+        ATTR_SELECTED   = 1 << 13,
+        ATTR_URL        = 1 << 14,
         ATTR_BOLD_FAINT = ATTR_BOLD | ATTR_FAINT,
         ATTR_DIRTYUNDERLINE = 1 << 15,
 };
@@ -138,6 +140,8 @@ void printsel(const Arg *);
 void copyurl(const Arg *);
 void newterm(const Arg *);
 void opencopied(const Arg *);
+void iso14755(const Arg *);
+void fullscreen(const Arg *);
 void sendbreak(const Arg *);
 void toggleprinter(const Arg *);
 
@@ -160,6 +164,10 @@ void selstart(int, int, int);
 void selextend(int, int, int, int);
 int selected(int, int);
 char *getsel(void);
+
+void highlighturls(void);
+void unhighlighturls(void);
+void followurl(int, int);
 
 size_t utf8encode(Rune, char *);
 
@@ -195,5 +203,10 @@ extern unsigned int defaultfg;
 extern unsigned int defaultbg;
 extern unsigned int defaultcs;
 extern unsigned int scrollback_lines;
+extern float alpha_def;
+extern char *iso14755_cmd;
+extern char *urlhandler;
+extern char urlchars[];
+extern char *urlprefixes[];
 extern const int boxdraw, boxdraw_bold, boxdraw_braille;
 extern Term term;

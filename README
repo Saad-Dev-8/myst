@@ -78,6 +78,20 @@ Applied on top of st 0.9.3, in dependency order:
   BSU/ESU checked before sixel in DCS handling)
 - st-csi_22_23-0.8.5.diff (title stack push/pop for `CSI 22/23`,
   `smcup`/`rmcup` save/restore title; `xsettitle(p, pop)` signature)
+- st-selectioncolors-0.8.4.diff (selectionbg 260/Nord `#434C5E`,
+  `ignoreselfg`; `ATTR_SELECTED` at bit 13)
+- st-changealpha-20251027-0.9.3.diff (`MODKEY+[`/`]` opacity ∓, reset;
+  `alpha_def`; no `cresize` side effect, pixel kept in sync)
+- st-iso14755-0.8.5.diff (`TERMMOD+I` unicode input via dmenu —
+  requires dmenu installed at runtime)
+- st-fullscreen-0.8.5.diff (F11 / `MODKEY+Return` EWMH toggle)
+- st-hidecursor-0.8.3.diff (blank pointer while typing)
+- st-clickurl-0.8.5.diff (Ctrl+click open, Ctrl-hover highlight;
+  `ATTR_URL` at bit 14; last-row off-by-one fixed)
+- copyurl multiline (custom forward-extension across `ATTR_WRAP` rows;
+  old DFA approach would regress the 0.9.3 bidirectional fixes)
+- unfocus-dim (custom, `alphaUnfocused`; `chgalpha` while unfocused
+  applies on next focus change)
 - st-blinking_cursor-20230819-3a6d6d7.diff (`cursorstyle` 0-8 with
   blinking variants, `stcursor` rune; default 5 blinking bar)
 - st-expected-anysize-0.9.diff
@@ -216,6 +230,10 @@ Shortcuts added
     MODKEY+l / MODKEY+Shift+L   copyurl previous / next URL
     MODKEY+o         opencopied (open clipboard with xdg-open)
     TERMMOD+S        externalpipe screen dump to clipboard (xclip)
+    MODKEY+[ / MODKEY+Shift+] / MODKEY+]   chgalpha -0.1 / +0.1 / reset
+    TERMMOD+I        iso14755 unicode input (needs dmenu)
+    F11 / MODKEY+Return  fullscreen toggle
+    Ctrl+click       follow URL under cursor (Ctrl highlights)
 
 Trying sync (needs an app emitting BSU/ESU, e.g. tmux with Sync cap):
     printf '\eP=1s\e\\...\eP=2s\e\\'  # begin/end synchronized update
@@ -226,6 +244,9 @@ Flags added
 
 Future work (not done)
 ----------------------
-- Scrollback search, URL hints, ligatures, emoji width handling,
-  zoom persistence — deferred as larger features.
+- Scrollback search, emoji width handling, zoom persistence.
+- `netwmicon`: blocked, needs libgd headers to compile.
+- `w3m` images: skipped, sixel covers image display.
+- kitty graphics protocol: major, notes undercurl conflicts.
+- `iso14755` binding present but needs dmenu installed at runtime.
 

@@ -128,6 +128,13 @@ unsigned int tabspaces = 4;
 /* bg opacity */
 float alpha = 0.90;
 
+/* Default opacity (restored by chgalpha reset) */
+float alpha_def;
+
+/* Opacity applied while the window is unfocused (0 to disable dimming
+ * by setting it equal to alpha) */
+float alphaUnfocused = 0.75;
+
 /*
  * drag and drop escape characters
  *
@@ -164,6 +171,7 @@ static char *colorname[] = {
 	"#2E3440", /* 257: reverse cursor - nord0 */
 	"#ECEFF4", /* 258: default foreground - nord6 */
 	"#2E3440", /* 259: default background - nord0 */
+	"#434C5E", /* 260: selection background - nord2 */
 };
 
 
@@ -175,6 +183,11 @@ unsigned int defaultfg = 258;
 unsigned int defaultbg = 259;
 unsigned int defaultcs = 256;
 static unsigned int defaultrcs = 257;
+unsigned int selectionbg = 260;
+unsigned int selectionfg = 7;
+/* If 0 use selectionfg as foreground in order to have a uniform foreground-color */
+/* Else if 1 keep original foreground-color of each cell => more colors :) */
+static int ignoreselfg = 1;
 
 /*
  * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-Ps-SP-q.1D81
@@ -220,6 +233,11 @@ static unsigned int defaultattr = 11;
 static uint forcemousemod = ShiftMask;
 
 /*
+ * Command used to query unicode glyphs (requires dmenu at runtime).
+ */
+char *iso14755_cmd = "dmenu -w \"$WINDOWID\" -p codepoint: </dev/null";
+
+/*
  * Internal mouse shortcuts.
  * Beware that overloading Button1 will disable the selection.
  */
@@ -238,6 +256,17 @@ static MouseShortcut mshortcuts[] = {
 
 /* Commands for externalpipe: screen content is piped to stdin. */
 static char *clipoutcmd[] = { "xclip", "-i", "-selection", "clipboard", NULL };
+
+/*
+ * Open urls starting with urlprefixes, containing urlchars
+ * by passing as ARG1 to urlhandler.
+ */
+char *urlhandler = "xdg-open";
+char urlchars[] =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"abcdefghijklmnopqrstuvwxyz"
+	"0123456789-._~:/?#@!$&'*+,;=%";
+char *urlprefixes[] = {"http://", "https://", NULL};
 
 static Shortcut shortcuts[] = {
 	/* mask                 keysym          function        argument */
@@ -263,6 +292,12 @@ static Shortcut shortcuts[] = {
 	{ MODKEY|ShiftMask,     XK_L,           copyurl,        {.i =  1} },
 	{ MODKEY,               XK_o,           opencopied,     {.v = "xdg-open"} },
 	{ TERMMOD,              XK_S,           externalpipe,   {.v = clipoutcmd} },
+	{ MODKEY,               XK_bracketleft, chgalpha,       {.f = -1} }, /* Decrease opacity */
+	{ MODKEY|ShiftMask,     XK_braceright,  chgalpha,       {.f = +1} }, /* Increase opacity */
+	{ MODKEY,               XK_bracketright,chgalpha,       {.f =  0} }, /* Reset opacity */
+	{ TERMMOD,              XK_I,           iso14755,       {.i =  0} },
+	{ XK_NO_MOD,            XK_F11,         fullscreen,     {.i =  0} },
+	{ MODKEY,               XK_Return,      fullscreen,     {.i =  0} },
 };
 
 /*

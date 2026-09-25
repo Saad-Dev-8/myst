@@ -67,6 +67,7 @@ static void zoom(const Arg *);
 static void zoomabs(const Arg *);
 static void zoomreset(const Arg *);
 static void ttysend(const Arg *);
+static void chgalpha(const Arg *);
 
 /* config.h for applying patches and the configuration. */
 #include "config.h"
@@ -95,6 +96,7 @@ typedef struct {
 	Drawable buf;
 	GlyphFontSpec *specbuf; /* font spec buffer used for rendering */
 	Atom xembed, wmdeletewin, netwmname, netwmiconname, netwmpid;
+	Atom netwmstate, netwmfullscreen;
 	Atom XdndTypeList, XdndSelection, XdndEnter, XdndPosition, XdndStatus,
 	     XdndLeave, XdndDrop, XdndFinished, XdndActionCopy, XdndActionMove,
 	     XdndActionLink, XdndActionAsk, XdndActionPrivate, XtextUriList,
@@ -110,6 +112,11 @@ typedef struct {
 	Draw draw;
 	Visual *vis;
 	XSetWindowAttributes attrs;
+	/* Here, we use the term *pointer* to differentiate the cursor
+	 * one sees when hovering the mouse over the terminal from, e.g.,
+	 * a green rectangle where text would be entered. */
+	Cursor vpointer, bpointer; /* visible and hidden pointers */
+	int pointerisvisible;
 	int scr;
 	int isfixed; /* is fixed geometry? */
 	int depth; /* bit depth */
@@ -211,6 +218,7 @@ static void usage(void);
 
 static void (*handler[LASTEvent])(XEvent *) = {
 	[KeyPress] = kpress,
+	[KeyRelease] = kpress,
 	[ClientMessage] = cmessage,
 	[ConfigureNotify] = resize,
 	[VisibilityNotify] = visibility,
@@ -477,6 +485,15 @@ mouseaction(XEvent *e, uint release)
 
 	/* ignore Button<N>mask for Button<N> - it's set on release */
 	uint state = e->xbutton.state & ~buttonmask(e->xbutton.button);
+
+	if (release == 0 &&
+	    e->xbutton.button == Button1 &&
+	    (match(ControlMask, state) ||
+	     match(ControlMask, state & ~forcemousemod))) {
+		followurl(evrow(e), evcol(e));
+		return 1;
+	}
+
 
 	for (ms = mshortcuts; ms < mshortcuts + LEN(mshortcuts); ms++) {
 		if (ms->release == release &&
@@ -853,6 +870,13 @@ brelease(XEvent *e)
 void
 bmotion(XEvent *e)
 {
+	if (!xw.pointerisvisible) {
+		XDefineCursor(xw.dpy, xw.win, xw.vpointer);
+		xw.pointerisvisible = 1;
+		if (!IS_SET(MODE_MOUSEMANY))
+			xsetpointermotion(0);
+	}
+
 	if (IS_SET(MODE_MOUSE) && !(e->xbutton.state & forcemousemod)) {
 		mousereport(e);
 		return;
@@ -895,6 +919,25 @@ xresize(int col, int row)
 
 	/* resize to new width */
 	xw.specbuf = xrealloc(xw.specbuf, col * sizeof(GlyphFontSpec) * 4);
+}
+
+void
+fullscreen(const Arg *arg)
+{
+	XEvent ev;
+
+	(void)arg;
+	memset(&ev, 0, sizeof(ev));
+
+	ev.xclient.type = ClientMessage;
+	ev.xclient.message_type = xw.netwmstate;
+	ev.xclient.display = xw.dpy;
+	ev.xclient.window = xw.win;
+	ev.xclient.format = 32;
+	ev.xclient.data.l[0] = 2; /* _NET_WM_STATE_TOGGLE */
+	ev.xclient.data.l[1] = xw.netwmfullscreen;
+
+	XSendEvent(xw.dpy, DefaultRootWindow(xw.dpy), False, SubstructureNotifyMask|SubstructureRedirectMask, &ev);
 }
 
 ushort
@@ -1497,10 +1540,10 @@ void
 xinit(int cols, int rows)
 {
 	XGCValues gcvalues;
-	Cursor cursor;
 	Window parent, root;
 	pid_t thispid = getpid();
 	XColor xmousefg, xmousebg;
+	Pixmap blankpm;
 	XWindowAttributes attr;
 	XVisualInfo vis;
 
@@ -1529,6 +1572,9 @@ xinit(int cols, int rows)
 	load_xresources(1);
 	usedfont = (opt_font == NULL)? font : opt_font;
 	xloadfonts(usedfont, 0);
+
+	/* Backup default alpha value (post-Xresources effective default) */
+	alpha_def = alpha;
 
 	/* spare fonts */
 	xloadsparefonts();
@@ -1583,8 +1629,9 @@ xinit(int cols, int rows)
 	}
 
 	/* white cursor, black outline */
-	cursor = XCreateFontCursor(xw.dpy, mouseshape);
-	XDefineCursor(xw.dpy, xw.win, cursor);
+	xw.pointerisvisible = 1;
+	xw.vpointer = XCreateFontCursor(xw.dpy, mouseshape);
+	XDefineCursor(xw.dpy, xw.win, xw.vpointer);
 
 	if (XParseColor(xw.dpy, xw.cmap, colorname[mousefg], &xmousefg) == 0) {
 		xmousefg.red   = 0xffff;
@@ -1598,7 +1645,10 @@ xinit(int cols, int rows)
 		xmousebg.blue  = 0x0000;
 	}
 
-	XRecolorCursor(xw.dpy, cursor, &xmousefg, &xmousebg);
+	XRecolorCursor(xw.dpy, xw.vpointer, &xmousefg, &xmousebg);
+	blankpm = XCreateBitmapFromData(xw.dpy, xw.win, &(char){0}, 1, 1);
+	xw.bpointer = XCreatePixmapCursor(xw.dpy, blankpm, blankpm,
+					  &xmousefg, &xmousebg, 0, 0);
 
 	xw.xembed = XInternAtom(xw.dpy, "_XEMBED", False);
 	xw.wmdeletewin = XInternAtom(xw.dpy, "WM_DELETE_WINDOW", False);
@@ -1609,6 +1659,9 @@ xinit(int cols, int rows)
 	xw.netwmpid = XInternAtom(xw.dpy, "_NET_WM_PID", False);
 	XChangeProperty(xw.dpy, xw.win, xw.netwmpid, XA_CARDINAL, 32,
 			PropModeReplace, (uchar *)&thispid, 1);
+
+	xw.netwmstate = XInternAtom(xw.dpy, "_NET_WM_STATE", False);
+	xw.netwmfullscreen = XInternAtom(xw.dpy, "_NET_WM_STATE_FULLSCREEN", False);
 
 	/* Xdnd setup */
 	xw.XdndTypeList = XInternAtom(xw.dpy, "XdndTypeList", 0);
@@ -1952,6 +2005,37 @@ xmakeglyphfontspecs(XftGlyphFontSpec *specs, const Glyph *glyphs, int len, int x
 	return numspecs;
 }
 
+static void
+applyalpha(float a)
+{
+	LIMIT(a, 0.0, 1.0);
+	dc.col[defaultbg].color.alpha = (unsigned short)(0xffff * a);
+	dc.col[defaultbg].pixel &= 0x00FFFFFF;
+	dc.col[defaultbg].pixel |= (unsigned char)(0xff * a) << 24;
+}
+
+static void
+chgalpha(const Arg *arg)
+{
+	if (arg->f == -1.0f && alpha >= 0.1f)
+		alpha -= 0.1f;
+	else if (arg->f == 1.0f && alpha < 1.0f)
+		alpha += 0.1f;
+	else if (arg->f == 0.0f)
+		alpha = alpha_def;
+	else
+		return;
+
+	/* Clamp alpha so it never exceeds valid range */
+	if (alpha < 0.1f)
+		alpha = 0.1f;
+	if (alpha > 1.0f)
+		alpha = 1.0f;
+
+	applyalpha(alpha);
+	redraw();
+}
+
 /* Undercurl slope types */
 enum undercurl_slope_type {
 	UNDERCURL_SLOPE_ASCENDING = 0,
@@ -2095,6 +2179,12 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		}
 	}
 
+	if (base.mode & ATTR_SELECTED) {
+		bg = &dc.col[selectionbg];
+		if (!ignoreselfg)
+			fg = &dc.col[selectionfg];
+	}
+
 	if (base.mode & ATTR_BLINK && win.mode & MODE_BLINK)
 		fg = bg;
 
@@ -2133,8 +2223,8 @@ xdrawglyphfontspecs(const XftGlyphFontSpec *specs, Glyph base, int len, int x, i
 		XftDrawGlyphFontSpec(xw.draw, fg, specs, len);
 	}
 
-	/* Render underline and strikethrough (len == 0 draws nothing). */
-	if ((base.mode & ATTR_UNDERLINE) && len > 0) {
+	/* Render underline (or URL highlight) and strikethrough (len == 0 draws nothing). */
+	if (((base.mode & ATTR_UNDERLINE) || (base.mode & ATTR_URL)) && len > 0) {
 		// Underline Color
 		const int widthThreshold  = 28; // +1 width every widthThreshold px of font
 		int wlw = (win.ch / widthThreshold) + 1; // Wave Line Width
@@ -2513,7 +2603,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 
 	/* remove the old cursor */
 	if (selected(ox, oy))
-		og.mode ^= ATTR_REVERSE;
+		og.mode |= ATTR_SELECTED;
 
 	/* Redraw the line where cursor was previously.
 	 * It will restore the ligatures broken by the cursor. */
@@ -2541,7 +2631,7 @@ xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int le
 		if (selected(cx, cy)) {
 			g.fg = defaultfg;
 			g.bg = defaultrcs;
-		} else if (!(og.mode & ATTR_REVERSE)) {
+		} else if (!(og.mode & ATTR_SELECTED)) {
 			unsigned long col = g.bg;
 			g.bg = g.fg;
 			g.fg = col;
@@ -2747,7 +2837,7 @@ xdrawline(Line line, int x1, int y1, int x2)
 		if (new.mode == ATTR_WDUMMY)
 			continue;
 		if (selected(x, y1))
-			new.mode ^= ATTR_REVERSE;
+			new.mode |= ATTR_SELECTED;
 		if (vbellset && isvbellcell(x, y1))
 			new.mode ^= ATTR_REVERSE;
 		if ((i > 0) && ATTRCMP(base, new)) {
@@ -2892,6 +2982,8 @@ unmap(XEvent *ev)
 void
 xsetpointermotion(int set)
 {
+	if (!set && !xw.pointerisvisible)
+		return;
 	MODBIT(xw.attrs.event_mask, set, PointerMotionMask);
 	XChangeWindowAttributes(xw.dpy, xw.win, CWEventMask, &xw.attrs);
 }
@@ -2951,12 +3043,16 @@ focus(XEvent *ev)
 			XSetICFocus(xw.ime.xic);
 		win.mode |= MODE_FOCUSED;
 		xseturgency(0);
+		applyalpha(alpha);
+		redraw();
 		if (IS_SET(MODE_FOCUS))
 			ttywrite("\033[I", 3, 0);
 	} else {
 		if (xw.ime.xic)
 			XUnsetICFocus(xw.ime.xic);
 		win.mode &= ~MODE_FOCUSED;
+		applyalpha(alphaUnfocused);
+		redraw();
 		if (IS_SET(MODE_FOCUS))
 			ttywrite("\033[O", 3, 0);
 	}
@@ -3016,6 +3112,12 @@ kpress(XEvent *ev)
 	Status status;
 	Shortcut *bp;
 
+	if (xw.pointerisvisible) {
+		XDefineCursor(xw.dpy, xw.win, xw.bpointer);
+		xsetpointermotion(1);
+		xw.pointerisvisible = 0;
+	}
+
 	if (IS_SET(MODE_KBDLOCK))
 		return;
 
@@ -3026,6 +3128,17 @@ kpress(XEvent *ev)
 	} else {
 		len = XLookupString(e, buf, sizeof buf, &ksym, NULL);
 	}
+
+	/* highlight URLs while control is held */
+	if (ksym == XK_Control_L) {
+		highlighturls();
+	} else if (ev->type == KeyRelease && e->keycode == XKeysymToKeycode(e->display, XK_Control_L)) {
+		unhighlighturls();
+	}
+
+	/* KeyRelease not relevant to shortcuts */
+	if (ev->type == KeyRelease)
+		return;
 
 	if ( IS_SET(MODE_KBDSELECT) ) {
 		if ( match(XK_NO_MOD, e->state) ||

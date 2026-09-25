@@ -1039,6 +1039,95 @@ getsel(void)
 	return str;
 }
 
+static char *
+strstrany(char *s, char **strs) {
+	char *match;
+	for (size_t i = 0; strs[i]; i++) {
+		if ((match = strstr(s, strs[i]))) {
+			return match;
+		}
+	}
+	return NULL;
+}
+
+void
+highlighturls(void)
+{
+	char *match;
+	char *linestr = calloc(term.col + 1, sizeof(char)); /* assume ascii */
+	for (int i = term.top; i <= term.bot; i++) {
+		int url_start = -1;
+		for (int j = 0; j < term.col; j++) {
+			if (term.line[i][j].u < 127) {
+				linestr[j] = term.line[i][j].u;
+			}
+			linestr[term.col] = '\0';
+		}
+		while ((match = strstrany(linestr + url_start + 1, urlprefixes))) {
+			url_start = match - linestr;
+			for (int c = url_start; c < term.col && strchr(urlchars, linestr[c]); c++) {
+				term.line[i][c].mode |= ATTR_URL;
+				tsetdirt(i, c);
+			}
+		}
+	}
+	free(linestr);
+}
+
+void
+unhighlighturls(void)
+{
+	for (int i = term.top; i <= term.bot; i++) {
+		for (int j = 0; j < term.col; j++) {
+			Glyph *g = &term.line[i][j];
+			if (g->mode & ATTR_URL) {
+				g->mode &= ~ATTR_URL;
+				tsetdirt(i, j);
+			}
+		}
+	}
+	return;
+}
+
+void
+followurl(int x, int y) {
+	char *linestr = calloc(term.col + 1, sizeof(char)); /* assume ascii */
+	char *match;
+	for (int i = 0; i < term.col; i++) {
+		if (term.line[x][i].u < 127) {
+			linestr[i] = term.line[x][i].u;
+		}
+		linestr[term.col] = '\0';
+	}
+	int url_start = -1;
+	while ((match = strstrany(linestr + url_start + 1, urlprefixes))) {
+		url_start = match - linestr;
+		int url_end = url_start;
+		for (int c = url_start; c < term.col && strchr(urlchars, linestr[c]); c++) {
+			url_end++;
+		}
+		if (url_start <= y && y < url_end) {
+			linestr[url_end] = '\0';
+			break;
+		}
+	}
+	if (url_start == -1) {
+		free(linestr);
+		return;
+	}
+
+	pid_t chpid;
+	if ((chpid = fork()) == 0) {
+		if (fork() == 0)
+			execlp(urlhandler, urlhandler, linestr + url_start, NULL);
+		exit(1);
+	}
+	if (chpid > 0)
+		waitpid(chpid, NULL, 0);
+	free(linestr);
+	unhighlighturls();
+}
+
 void
 selclear(void)
 {
@@ -2819,6 +2908,29 @@ tprinter(char *s, size_t len)
 }
 
 void
+iso14755(const Arg *arg)
+{
+	FILE *p;
+	char *us, *e, codepoint[9], uc[UTF_SIZ];
+	unsigned long utf32;
+
+	(void)arg;
+	if (!(p = popen(iso14755_cmd, "r")))
+		return;
+
+	us = fgets(codepoint, sizeof(codepoint), p);
+	pclose(p);
+
+	if (!us || *us == '\0' || *us == '-' || strlen(us) > 7)
+		return;
+	if ((utf32 = strtoul(us, &e, 16)) == ULONG_MAX ||
+	    (*e != '\n' && *e != '\0'))
+		return;
+
+	ttywrite(uc, utf8encode(utf32, uc), 1);
+}
+
+void
 toggleprinter(const Arg *arg)
 {
 	term.mode ^= MODE_PRINT;
@@ -3621,8 +3733,8 @@ findfirstany(const char *str, const char**find, size_t len)
 /*
  * Select and copy the previous url on screen (do nothing if there's no url).
  *
- * FIXME: doesn't handle urls that span multiple lines; will need to add support
- *        for multiline "getsel()" first
+ * Urls soft-wrapped across rows (ATTR_WRAP) are followed and copied whole;
+ * getsel() already omits the newline on wrapped rows.
  */
 void
 copyurl(const Arg *arg) {
@@ -3701,9 +3813,28 @@ copyurl(const Arg *arg) {
 
 	if (match) {
 		size_t l = strspn(match, URLCHARS);
+		int end_col = (match - linestr) + l - 1;
+		int end_row = row;
+		/* follow soft-wrapped continuation rows */
+		while (end_col + 1 >= term.col &&
+		       end_row + 1 < term.row &&
+		       (term.line[end_row][term.col-1].mode & ATTR_WRAP)) {
+			char next[term.col + 1];
+			size_t l2;
+			int c;
+			for (c = 0; c < term.col; ++c)
+				next[c] = term.line[end_row+1][c].u < 128
+					? term.line[end_row+1][c].u : ' ';
+			next[c] = '\0';
+			l2 = strspn(next, URLCHARS);
+			if (l2 == 0)
+				break;
+			end_col = l2 - 1;
+			end_row++;
+		}
 		selstart(match - linestr, row, 0);
-		selextend(match - linestr + l - 1, row, SEL_REGULAR, 0);
-		selextend(match - linestr + l - 1, row, SEL_REGULAR, 1);
+		selextend(end_col, end_row, SEL_REGULAR, 0);
+		selextend(end_col, end_row, SEL_REGULAR, 1);
 		xsetsel(getsel());
 		xclipcopy();
 	}
