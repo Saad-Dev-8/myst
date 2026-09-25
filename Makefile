@@ -4,7 +4,7 @@
 
 include config.mk
 
-SRC = st.c x.c sixel.c sixel_hls.c boxdraw.c
+SRC = st.c x.c sixel.c sixel_hls.c boxdraw.c hb.c
 OBJ = $(SRC:.c=.o)
 
 all: st
@@ -16,8 +16,9 @@ config.h:
 	$(CC) $(STCFLAGS) -c $<
 
 st.o: config.h st.h win.h
-x.o: arg.h config.h st.h win.h
+x.o: arg.h config.h st.h win.h hb.h
 boxdraw.o: config.h st.h boxdraw_data.h
+hb.o: st.h
 
 $(OBJ): config.h config.mk
 
@@ -41,7 +42,7 @@ debug:
 dist: clean
 	mkdir -p st-$(VERSION)
 	cp -R FAQ LEGACY TODO LICENSE Makefile README config.mk\
-		config.def.h st.info st.1 st.desktop arg.h st.h win.h boxdraw_data.h $(SRC)\
+		config.def.h st.info st.1 st.desktop arg.h st.h win.h hb.h boxdraw_data.h $(SRC)\
 		st-$(VERSION)
 	tar -cf - st-$(VERSION) | gzip > st-$(VERSION).tar.gz
 	rm -rf st-$(VERSION)

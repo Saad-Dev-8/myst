@@ -69,6 +69,10 @@ Applied on top of st 0.9.3, in dependency order:
   `chscale > 1`; also applied to undercurl/strike offsets)
 - st-visualbell2-basic-2020-05-13-045a0fa.diff (border-flash visual bell,
   `vbelltimeout`/`VBCELL` in config)
+- st-ligatures-boxdraw-20251007-0.9.3 (`hb.c`/`hb.h`, HarfBuzz shaping
+  per attribute run; `ATTRCMP` ignores `ATTR_WRAP`; cursor redraws its
+  old line to restore ligatures; `xdrawcursor`/`xdrawglyphfontspecs`
+  take explicit `charlen`; spec buffer 4x)
 - st-expected-anysize-0.9.diff
 
 Pre-merge `*.orig` / `*.rej` leftovers are archived in
@@ -159,6 +163,11 @@ Fixes on top of the patches
 - workingdir: `chdir` guarded by `opt_dir` with error message (upstream
   calls `chdir(NULL)` when the flag is absent).
 - spoiler: pixel comparison instead of pointer comparison.
+- ligatures: strict-C99 `features`/`NUM_FEATURES` (upstream's empty
+  initializer is a GNU extension rejected by `c99`); `size_t` loop
+  counters and `(KeySym)`-style casts to hold the `-Wall` baseline;
+  `win.cyo` kept in shaped baselines; `hb.h` include guards; extra
+  `#include <string.h>`/`<limits.h>` in `hb.c`.
 - Local settings promoted to `config.def.h`: `tabspaces = 4`
   (with matching `it#4` in `st.info`), `alpha = 0.90`.
 
@@ -174,6 +183,9 @@ Trying the new rendering
     printf '\u250c\u2500\u2510\n\u2502 \u2502\n\u2514\u2500\u2518\n'
     # undercurl + underline color (needs an app or manual SGR):
     printf '\e[4:3mcurly\e[0m \e[58:2:255:0:0m\e[4:3mred curl\e[0m\n'
+    # ligatures (needs a ligature font, e.g. Fira Code — none of the
+    # currently installed fonts shape any; verified headless via hb):
+    printf '-> => != ==> ~~> ||> <|\n'
 
 Shortcuts added
 ---------------
