@@ -1,0 +1,4 @@
+st
+*.o
+st-*.tar.gz
+config.h
