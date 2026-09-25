@@ -78,6 +78,8 @@ Applied on top of st 0.9.3, in dependency order:
   BSU/ESU checked before sixel in DCS handling)
 - st-csi_22_23-0.8.5.diff (title stack push/pop for `CSI 22/23`,
   `smcup`/`rmcup` save/restore title; `xsettitle(p, pop)` signature)
+- st-blinking_cursor-20230819-3a6d6d7.diff (`cursorstyle` 0-8 with
+  blinking variants, `stcursor` rune; default 5 blinking bar)
 - st-expected-anysize-0.9.diff
 
 Pre-merge `*.orig` / `*.rej` leftovers are archived in
@@ -178,6 +180,8 @@ Fixes on top of the patches
 - workingdir: `chdir` guarded by `opt_dir` with error message (upstream
   calls `chdir(NULL)` when the flag is absent).
 - spoiler: pixel comparison instead of pointer comparison.
+- `warnings`/`debug` targets pass flags as command-line overrides
+  (env-passing is shadowed once `config.mk` pins `CFLAGS`).
 - ligatures: strict-C99 `features`/`NUM_FEATURES` (upstream's empty
   initializer is a GNU extension rejected by `c99`); `size_t` loop
   counters and `(KeySym)`-style casts to hold the `-Wall` baseline;

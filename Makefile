@@ -28,16 +28,16 @@ st: $(OBJ)
 clean:
 	rm -f st $(OBJ) st-$(VERSION).tar.gz
 
-# Extra diagnostics. Does not change the default build flags.
+# Extra diagnostics. Flags pass as command-line overrides so they win
+# over config.mk assignments.
 warnings:
 	$(MAKE) clean >/dev/null
-	CFLAGS="$(CFLAGS) -Wall -Wextra" $(MAKE) st
+	$(MAKE) CFLAGS="$(CFLAGS) -Wall -Wextra" st
 
 debug:
 	$(MAKE) clean >/dev/null
-	CFLAGS="$(CFLAGS) -g -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer" \
-	LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined" \
-	$(MAKE) st
+	$(MAKE) CFLAGS="$(CFLAGS) -g -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer" \
+		LDFLAGS="$(LDFLAGS) -fsanitize=address,undefined" st
 
 dist: clean
 	mkdir -p st-$(VERSION)
