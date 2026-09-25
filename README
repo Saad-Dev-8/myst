@@ -76,6 +76,8 @@ Applied on top of st 0.9.3, in dependency order:
 - st-appsync-20200618-b27a383.diff (synchronized updates BSU/ESU,
   `su_timeout`, `Sync` terminfo cap; autosync part already upstream.
   BSU/ESU checked before sixel in DCS handling)
+- st-csi_22_23-0.8.5.diff (title stack push/pop for `CSI 22/23`,
+  `smcup`/`rmcup` save/restore title; `xsettitle(p, pop)` signature)
 - st-expected-anysize-0.9.diff
 
 Pre-merge `*.orig` / `*.rej` leftovers are archived in

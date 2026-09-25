@@ -71,6 +71,9 @@ static void ttysend(const Arg *);
 /* config.h for applying patches and the configuration. */
 #include "config.h"
 
+/* size of title stack */
+#define TITLESTACKSIZE 8
+
 /* XEMBED messages */
 #define XEMBED_FOCUS_IN  4
 #define XEMBED_FOCUS_OUT 5
@@ -237,6 +240,8 @@ static XWindow xw;
 static XSelection xsel;
 TermWindow win;
 const unsigned char XdndVersion = 5;
+static int tstki; /* title stack index */
+static char *titlestack[TITLESTACKSIZE]; /* title stack */
 
 /* Font Ring Cache */
 enum {
@@ -2473,10 +2478,30 @@ xseticontitle(char *p)
 }
 
 void
-xsettitle(char *p)
+xfreetitlestack(void)
+{
+	for (size_t i = 0; i < LEN(titlestack); i++) {
+		free(titlestack[i]);
+		titlestack[i] = NULL;
+	}
+}
+
+void
+xsettitle(char *p, int pop)
 {
 	XTextProperty prop;
-	DEFAULT(p, opt_title);
+
+	free(titlestack[tstki]);
+	if (pop) {
+		titlestack[tstki] = NULL;
+		tstki = (tstki - 1 + TITLESTACKSIZE) % TITLESTACKSIZE;
+		p = titlestack[tstki] ? titlestack[tstki] : opt_title;
+	} else if (p) {
+		titlestack[tstki] = xstrdup(p);
+	} else {
+		titlestack[tstki] = NULL;
+		p = opt_title;
+	}
 
 	if (p[0] == '\0')
 		p = opt_title;
@@ -2487,6 +2512,16 @@ xsettitle(char *p)
 	XSetWMName(xw.dpy, xw.win, &prop);
 	XSetTextProperty(xw.dpy, xw.win, &prop, xw.netwmname);
 	XFree(prop.value);
+}
+
+void
+xpushtitle(void)
+{
+	int tstkin = (tstki + 1) % TITLESTACKSIZE;
+
+	free(titlestack[tstkin]);
+	titlestack[tstkin] = titlestack[tstki] ? xstrdup(titlestack[tstki]) : NULL;
+	tstki = tstkin;
 }
 
 void
