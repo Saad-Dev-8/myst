@@ -102,10 +102,20 @@ overhang never clips against the per-cell Xft clip region.
 
 Build
 -----
-    make                # default, warning-free
+    make                # default, warning-free (-O2 pinned in config.mk)
     make warnings       # default build + -Wall -Wextra
     make debug          # -g + -fsanitize=address,undefined
     ./tests/smoke.sh    # clean build, version check, terminfo check
+
+Performance notes
+-----------------
+- `config.mk` pins `CFLAGS = -O2` (was compiler default -O0).
+- Ligature fast path (`needs_shaping` in `x.c`): runs holding only
+  ASCII letters/digits/spaces skip HarfBuzz and use the pre-ligatures
+  per-glyph loop verbatim; anything with punct, non-ASCII (incl.
+  combining marks) or boxdraw shapes normally. Output is identical
+  either way — shaping is skipped only where it cannot change anything
+  in coding fonts.
 
 Hot-reload (theme without restart)
 ----------------------------------
