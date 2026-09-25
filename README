@@ -171,7 +171,7 @@ Fixes on top of the patches
   counters and `(KeySym)`-style casts to hold the `-Wall` baseline;
   `win.cyo` kept in shaped baselines; `hb.h` include guards; extra
   `#include <string.h>`/`<limits.h>` in `hb.c`.
-- Config taste (both files, kept in sync): JetBrainsMono Nerd 14px,
+- Config taste (both files, kept in sync): MesloLGS Nerd Font Mono 14px,
   `borderpx = 10`, bar cursor (`cursorshape = 6`), 120x30, full
   `worddelimiters`, `TERMMOD+S` screen-dump to clipboard via xclip.
 - Local settings promoted to `config.def.h`: `tabspaces = 4`
