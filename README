@@ -94,6 +94,8 @@ Applied on top of st 0.9.3, in dependency order:
   applies on next focus change)
 - st-blinking_cursor-20230819-3a6d6d7.diff (`cursorstyle` 0-8 with
   blinking variants, `stcursor` rune; default 5 blinking bar)
+- st-netwmicon-0.8.5-v2.diff (`st.png` → `_NET_WM_ICON` via libgd;
+  needs `media-libs/gd`; `st.desktop` uses `Icon=st`)
 - st-expected-anysize-0.9.diff
 
 Pre-merge `*.orig` / `*.rej` leftovers are archived in
@@ -245,7 +247,6 @@ Flags added
 Future work (not done)
 ----------------------
 - Scrollback search, emoji width handling, zoom persistence.
-- `netwmicon`: blocked, needs libgd headers to compile.
 - `w3m` images: skipped, sixel covers image display.
 - kitty graphics protocol: major, notes undercurl conflicts.
 - `iso14755` binding present but needs dmenu installed at runtime.
