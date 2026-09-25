@@ -3840,6 +3840,22 @@ copyurl(const Arg *arg) {
 	}
 }
 
+/*
+ * Select the entire visible screen and copy it to primary + clipboard.
+ * Note: this swallows Ctrl-A (readline beginning-of-line, tmux prefix).
+ * Rebind to TERMMOD if that bites.
+ */
+void
+selectall(const Arg *arg)
+{
+	(void)arg;
+	selstart(0, 0, 0);
+	selextend(term.col - 1, term.row - 1, SEL_REGULAR, 0);
+	selextend(term.col - 1, term.row - 1, SEL_REGULAR, 1);
+	xsetsel(getsel());
+	xclipcopy();
+}
+
 void set_notifmode(int type, KeySym ksym) {
 	static char *lib[] = { " MOVE ", " SEL  "};
 	static Glyph *g, *deb, *fin;

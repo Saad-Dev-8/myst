@@ -138,6 +138,7 @@ void externalpipe(const Arg *);
 void printscreen(const Arg *);
 void printsel(const Arg *);
 void copyurl(const Arg *);
+void selectall(const Arg *);
 void newterm(const Arg *);
 void opencopied(const Arg *);
 void iso14755(const Arg *);
