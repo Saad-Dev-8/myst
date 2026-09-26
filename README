@@ -204,8 +204,11 @@ Fixes on top of the patches
   `win.cyo` kept in shaped baselines; `hb.h` include guards; extra
   `#include <string.h>`/`<limits.h>` in `hb.c`.
 - Config taste (both files, kept in sync): MesloLGS Nerd Font Mono 14px,
-  `borderpx = 10`, bar cursor (`cursorshape = 6`), 120x30, full
+  `borderpx = 10`, blinking bar cursor (`cursorstyle = 5`), 120x30, full
   `worddelimiters`, `TERMMOD+S` screen-dump to clipboard via xclip.
+- selectall harvests prompt-anchored input (`inputleaders`, default
+  `❯`) + cursor row instead of the whole dump; no trailing newline so
+  pasting never auto-runs the last command.
 - Local settings promoted to `config.def.h`: `tabspaces = 4`
   (with matching `it#4` in `st.info`), `alpha = 0.90`.
 
@@ -233,7 +236,7 @@ Shortcuts added
     MODKEY+l / MODKEY+Shift+L   copyurl previous / next URL
     MODKEY+o         opencopied (open clipboard with xdg-open)
     TERMMOD+S        externalpipe screen dump to clipboard (xclip)
-    ControlMask+a    selectall (scrollback + screen to primary + clipboard)
+    ControlMask+a    selectall (your commands + current line; alt-screen falls back to full dump)
     MODKEY+[ / MODKEY+Shift+] / MODKEY+]   chgalpha -0.1 / +0.1 / reset
     TERMMOD+I        iso14755 unicode input (needs dmenu)
     F11 / MODKEY+Return  fullscreen toggle

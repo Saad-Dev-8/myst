@@ -42,6 +42,14 @@ static float chscale = 1.0;
  */
 wchar_t *worddelimiters = L" `'\"()[]{}";
 
+/*
+ * Prompt-leader chars for selectall harvesting: a screen row counts as
+ * user input when it holds one of these; the copied command is the text
+ * after its last leader. Tune to your prompt (e.g. add "$#%" for
+ * classic prompts). The cursor row is always included as fallback.
+ */
+char *inputleaders = "❯";
+
 /* selection timeouts (in milliseconds) */
 static unsigned int doubleclicktimeout = 300;
 static unsigned int tripleclicktimeout = 600;

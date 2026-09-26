@@ -165,6 +165,7 @@ static void tinsertblank(int);
 static void tinsertblankline(int);
 static int tlinelen(Line);
 static char *getsel_all(void);
+static char *harvestinput(int *, int *);
 static void tmoveto(int, int);
 static void tmoveato(int, int);
 static void tnewline(int);
@@ -3842,25 +3843,111 @@ copyurl(const Arg *arg) {
 }
 
 /*
- * Select the entire visible screen and copy it to primary + clipboard.
- * Note: this swallows Ctrl-A (readline beginning-of-line, tmux prefix).
- * Rebind to TERMMOD if that bites.
- *
- * Like Alacritty, the clipboard gets scrollback history plus the live
- * screen (oldest first); the visual highlight covers the screen.
+ * Select the text the user has written: every screen row holding an
+ * input-leader char contributes the text after its last leader (i.e.
+ * the typed command, without prompt chrome), plus the current cursor
+ * row (whole trimmed line when leaderless). Alternate screen falls
+ * back to the full visible dump.
  */
 void
 selectall(const Arg *arg)
 {
 	char *s;
+	int first, last;
 
 	(void)arg;
-	selstart(0, 0, 0);
-	selextend(term.col - 1, term.row - 1, SEL_REGULAR, 0);
-	selextend(term.col - 1, term.row - 1, SEL_REGULAR, 1);
-	s = getsel_all();
+	s = (!IS_SET(MODE_ALTSCREEN) && inputleaders && *inputleaders)
+		? harvestinput(&first, &last) : NULL;
+	if (s) {
+		selstart(0, first, 0);
+		selextend(term.col - 1, last, SEL_REGULAR, 0);
+		selextend(term.col - 1, last, SEL_REGULAR, 1);
+	} else {
+		selstart(0, 0, 0);
+		selextend(term.col - 1, term.row - 1, SEL_REGULAR, 0);
+		selextend(term.col - 1, term.row - 1, SEL_REGULAR, 1);
+		s = getsel_all();
+	}
 	xsetsel(s);
 	xclipcopy();
+}
+
+/* Harvest user-typed commands (see selectall). Commands are joined with
+ * '\n' and no trailing newline, so pasting never auto-runs the last one.
+ * first/last receive the harvested row range for the visual highlight.
+ * Returns NULL when no input found (caller falls back). Leaders are
+ * matched per-cell as runes, so multibyte leaders (❯) are exact. */
+static char *
+harvestinput(int *first, int *last)
+{
+	Rune leaders[32];
+	int nleaders = 0;
+	const char *p = inputleaders;
+	char *cmds, *d;
+	int row, col, i;
+
+	while (*p && nleaders < (int)LEN(leaders)) {
+		Rune u;
+		size_t n = utf8decode(p, &u, strlen(p));
+		if (n == 0)
+			break;
+		leaders[nleaders++] = u;
+		p += n;
+	}
+
+	cmds = xmalloc((term.col + 1) * term.row * UTF_SIZ);
+	d = cmds;
+	*first = *last = -1;
+
+	for (row = 0; row < term.row; row++) {
+		int mark = -1, begin, end;
+
+		for (col = 0; col < term.col; col++) {
+			Rune u;
+			if (term.line[row][col].mode & ATTR_WDUMMY)
+				continue;
+			u = term.line[row][col].u;
+			for (i = 0; i < nleaders; i++) {
+				if (u == leaders[i]) {
+					mark = col;
+					break;
+				}
+			}
+		}
+
+		if (mark >= 0)
+			begin = mark + 1;
+		else if (row == term.c.y)
+			begin = 0;
+		else
+			continue;
+
+		while (begin < term.col && term.line[row][begin].u == ' ')
+			begin++;
+		end = term.col - 1;
+		while (end >= begin && term.line[row][end].u == ' ')
+			end--;
+		if (begin > end)
+			continue;
+
+		if (*first < 0)
+			*first = row;
+		*last = row;
+		for (col = begin; col <= end; col++) {
+			if (term.line[row][col].mode & ATTR_WDUMMY)
+				continue;
+			d += utf8encode(term.line[row][col].u, d);
+		}
+		*d++ = '\n';
+	}
+
+	if (*first < 0) {
+		free(cmds);
+		return NULL;
+	}
+	/* drop trailing newline: pasting must not auto-run the last command */
+	*--d = '\0';
+	return cmds;
 }
 
 /* Full text of scrollback (oldest first) plus live screen, for select-all.
