@@ -227,6 +227,7 @@ Trying the new rendering
 
 Shortcuts added
 ---------------
+    Button2 (middle) select-paste (primary); Button3 (right) paste (clipboard)
     TERMMOD+Return   newterm (new st in shell cwd)
     TERMMOD+Escape   keyboard-select (s: select mode, /: search, Enter: keep, Esc: quit)
     MODKEY+l / MODKEY+Shift+L   copyurl previous / next URL
