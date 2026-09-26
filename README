@@ -87,7 +87,8 @@ Applied on top of st 0.9.3, in dependency order:
 - st-fullscreen-0.8.5.diff (F11 / `MODKEY+Return` EWMH toggle)
 - st-hidecursor-0.8.3.diff (blank pointer while typing)
 - st-clickurl-0.8.5.diff (Ctrl+click open, Ctrl-hover highlight;
-  `ATTR_URL` at bit 14; last-row off-by-one fixed)
+  `ATTR_URL` at bit 14; last-row off-by-one fixed; per-row dirty marking
+  instead of column-as-row; unhighlight redraws; `followurl` row guard)
 - copyurl multiline (custom forward-extension across `ATTR_WRAP` rows;
   old DFA approach would regress the 0.9.3 bidirectional fixes)
 - unfocus-dim (custom, `alphaUnfocused`; `chgalpha` while unfocused
