@@ -233,7 +233,7 @@ Shortcuts added
     MODKEY+l / MODKEY+Shift+L   copyurl previous / next URL
     MODKEY+o         opencopied (open clipboard with xdg-open)
     TERMMOD+S        externalpipe screen dump to clipboard (xclip)
-    ControlMask+a    selectall (whole screen to primary + clipboard)
+    ControlMask+a    selectall (scrollback + screen to primary + clipboard)
     MODKEY+[ / MODKEY+Shift+] / MODKEY+]   chgalpha -0.1 / +0.1 / reset
     TERMMOD+I        iso14755 unicode input (needs dmenu)
     F11 / MODKEY+Return  fullscreen toggle

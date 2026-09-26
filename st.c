@@ -164,6 +164,7 @@ static void tdeleteline(int);
 static void tinsertblank(int);
 static void tinsertblankline(int);
 static int tlinelen(Line);
+static char *getsel_all(void);
 static void tmoveto(int, int);
 static void tmoveato(int, int);
 static void tnewline(int);
@@ -3844,16 +3845,76 @@ copyurl(const Arg *arg) {
  * Select the entire visible screen and copy it to primary + clipboard.
  * Note: this swallows Ctrl-A (readline beginning-of-line, tmux prefix).
  * Rebind to TERMMOD if that bites.
+ *
+ * Like Alacritty, the clipboard gets scrollback history plus the live
+ * screen (oldest first); the visual highlight covers the screen.
  */
 void
 selectall(const Arg *arg)
 {
+	char *s;
+
 	(void)arg;
 	selstart(0, 0, 0);
 	selextend(term.col - 1, term.row - 1, SEL_REGULAR, 0);
 	selextend(term.col - 1, term.row - 1, SEL_REGULAR, 1);
-	xsetsel(getsel());
+	s = getsel_all();
+	xsetsel(s);
 	xclipcopy();
+}
+
+/* Full text of scrollback (oldest first) plus live screen, for select-all.
+ * Mirrors getsel() trim/wrap rules so soft-wrapped lines join cleanly
+ * (no newline) and trailing spaces are dropped. Alternate screen has no
+ * scrollback, so only live lines are dumped there. */
+static char *
+getsel_all(void)
+{
+	char *str, *ptr;
+	int n_hist = IS_SET(MODE_ALTSCREEN) ? 0 : sb.len;
+	int total = n_hist + term.row;
+	int bufsize, k, linelen, end_idx, is_wrapped, lastx;
+	const Glyph *gp, *last;
+	Line line;
+
+	if (total <= 0)
+		return xstrdup("");
+
+	bufsize = (term.col+1) * total * UTF_SIZ;
+	ptr = str = xmalloc(bufsize);
+
+	for (k = 0; k < total; k++) {
+		line = k < n_hist ? sb_get(k) : term.line[k - n_hist];
+		if (!line) {
+			if (k < total - 1)
+				*ptr++ = '\n';
+			continue;
+		}
+		linelen = tlinelen(line);
+		if (linelen == 0) {
+			if (k < total - 1)
+				*ptr++ = '\n';
+			continue;
+		}
+
+		gp = &line[0];
+		lastx = term.col - 1;
+		end_idx = MIN(lastx, linelen-1);
+		is_wrapped = (line[end_idx].mode & ATTR_WRAP) != 0;
+		last = &line[end_idx];
+		while (last >= gp && last->u == ' ')
+			--last;
+
+		for (; gp <= last; ++gp) {
+			if (gp->mode & ATTR_WDUMMY)
+				continue;
+			ptr += utf8encode(gp->u, ptr);
+		}
+		if (k < total - 1 && !is_wrapped)
+			*ptr++ = '\n';
+	}
+	*ptr = 0;
+	return str;
 }
 
 void set_notifmode(int type, KeySym ksym) {
